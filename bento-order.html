@@ -126,11 +126,11 @@
   .toast{position:fixed;bottom:28px;left:50%;transform:translateX(-50%) translateY(80px);background:var(--success);color:white;padding:12px 24px;border-radius:10px;font-size:14px;font-weight:700;box-shadow:0 4px 20px rgba(0,0,0,0.2);transition:transform 0.3s cubic-bezier(0.34,1.56,0.64,1);z-index:999;white-space:nowrap;}
   .toast.show{transform:translateX(-50%) translateY(0);}
   .chip-daily{font-size:11px;background:var(--accent);color:white;padding:2px 8px;border-radius:4px;font-weight:700;vertical-align:middle;margin-left:4px;}
-  .daily-week-item{display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--border);}
+  .daily-week-item{display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--border);flex-wrap:wrap;}
   .daily-week-item:last-child{border-bottom:none;}
   .daily-week-date{font-size:13px;font-weight:700;color:var(--navy);min-width:80px;}
-  .daily-week-item input[type="text"]{flex:1;}
-
+  .daily-week-item input[type="text"]{flex:1;min-width:120px;}
+  .daily-week-item input[type="number"]{width:80px;}
   /* スマホ */
   @media(max-width:600px){
     .login-card{padding:32px 20px 28px;}
@@ -157,6 +157,10 @@
     .input-row input[type="text"]{width:100%;}
     .menu-setting-item{flex-wrap:wrap;gap:8px;}
     .member-list-item{flex-wrap:wrap;gap:8px;}
+    .daily-week-item{flex-wrap:wrap;gap:6px;}
+    .daily-week-date{width:100%;}
+    .daily-week-item input[type="text"]{width:100%;}
+    .daily-week-item input[type="number"]{width:80px;}
     .summary-header{flex-direction:column;align-items:flex-start;gap:12px;}
     .summary-table th,.summary-table td{padding:8px 10px;font-size:12px;}
     .shop-info-bar{flex-direction:column;gap:6px;align-items:flex-start;}
