@@ -727,7 +727,7 @@ function renderSummary(){
   const orderList=Object.values(state.orders[summaryDate]||{});
   const menus=getAllMenus();
   const tbody=document.getElementById('summary-body');
-  if(orderList.length===0){ tbody.innerHTML=`<tr><td colspan="3" style="text-align:center;color:var(--text-muted);padding:32px">まだ注文がありません</td></tr>`; return; }
+  if(orderList.length===0){ tbody.innerHTML=`<tr><td colspan="4" style="text-align:center;color:var(--text-muted);padding:32px">まだ注文がありません</td></tr>`; document.getElementById('summary-total-row').style.display='none'; return; }
   const counts={}; const userInfos={};
   menus.forEach(m=>{ counts[m.id]=0; userInfos[m.id]=[]; });
   orderList.forEach(o=>{
@@ -889,10 +889,13 @@ function renderMemberSettings(){
 }
 
 // トースト
+let toastTimer=null;
 function showToast(msg,isWarn=false){
   const t=document.getElementById('toast');
+  if(toastTimer){ clearTimeout(toastTimer); t.classList.remove('show'); }
   t.textContent=msg; t.style.background=isWarn?'#D94F3D':'#2D9B6F';
-  t.classList.add('show'); setTimeout(()=>t.classList.remove('show'),2500);
+  requestAnimationFrame(()=>{ requestAnimationFrame(()=>{ t.classList.add('show'); }); });
+  toastTimer=setTimeout(()=>{ t.classList.remove('show'); toastTimer=null; },2500);
 }
 
 // 起動
