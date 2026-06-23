@@ -1,0 +1,763 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>お弁当注文システム</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;700&display=swap');
+  :root {
+    --navy: #2C3E6B; --navy-light: #3D5188; --accent: #E8A838;
+    --accent-light: #FDF3DE; --bg: #F5F6FA; --white: #ffffff;
+    --text: #1A1A2E; --text-muted: #6B7280; --border: #E2E5EF;
+    --success: #2D9B6F; --danger: #D94F3D; --radius: 10px;
+    --shadow: 0 2px 12px rgba(44,62,107,0.08);
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Noto Sans JP', sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; }
+
+  /* ローディング */
+  #loading-screen {
+    min-height: 100vh; display: flex; flex-direction: column;
+    align-items: center; justify-content: center; gap: 16px;
+    background: var(--bg);
+  }
+  .loading-spinner {
+    width: 40px; height: 40px;
+    border: 4px solid var(--border);
+    border-top-color: var(--navy);
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .loading-text { font-size: 14px; color: var(--text-muted); font-weight: 500; }
+
+  /* ログイン */
+  #login-screen { min-height: 100vh; display: none; align-items: center; justify-content: center; background: var(--bg); }
+  .login-card {
+    background: var(--white); border-radius: 16px;
+    box-shadow: 0 4px 24px rgba(44,62,107,0.13);
+    padding: 40px 32px 32px; width: 100%; max-width: 420px; text-align: center;
+  }
+  .login-logo { font-size: 48px; margin-bottom: 8px; }
+  .login-title { font-size: 20px; font-weight: 700; color: var(--navy); margin-bottom: 4px; }
+  .login-sub { font-size: 13px; color: var(--text-muted); margin-bottom: 28px; }
+  .login-label { font-size: 13px; font-weight: 700; color: var(--text-muted); text-align: left; display: block; margin-bottom: 8px; }
+  .member-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 20px; }
+  .member-btn {
+    padding: 14px 10px; border: 1.5px solid var(--border); border-radius: 10px;
+    background: var(--white); font-size: 14px; font-weight: 700; font-family: inherit;
+    color: var(--text); cursor: pointer; transition: all 0.18s;
+    display: flex; align-items: center; justify-content: center; gap: 6px; flex-direction: column;
+  }
+  .member-btn:hover { border-color: var(--navy); background: #F0F3FB; color: var(--navy); }
+  .member-btn.selected { border-color: var(--navy); background: var(--navy); color: white; }
+  .btn-login {
+    width: 100%; background: var(--navy); color: white; border: none;
+    border-radius: 10px; padding: 14px; font-size: 16px; font-weight: 700;
+    cursor: pointer; font-family: inherit; transition: background 0.2s; margin-top: 4px;
+  }
+  .btn-login:hover { background: var(--navy-light); }
+  .btn-login:disabled { background: var(--border); color: var(--text-muted); cursor: not-allowed; }
+
+  /* アプリ */
+  #app-screen { display: none; }
+  header {
+    background: var(--navy); color: white; padding: 0 24px; height: 60px;
+    display: flex; align-items: center; justify-content: space-between;
+    position: sticky; top: 0; z-index: 100; box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+  }
+  header h1 { font-size: 17px; font-weight: 700; letter-spacing: 0.05em; display: flex; align-items: center; gap: 8px; }
+  header h1 span { font-size: 20px; }
+  .header-right { display: flex; align-items: center; gap: 10px; font-size: 13px; color: rgba(255,255,255,0.85); }
+  .user-badge { background: rgba(255,255,255,0.15); padding: 4px 12px; border-radius: 20px; font-size: 12px; font-weight: 700; }
+  .btn-logout {
+    background: rgba(255,255,255,0.12); border: 1px solid rgba(255,255,255,0.3);
+    color: white; border-radius: 6px; padding: 5px 12px; font-size: 12px;
+    font-weight: 700; cursor: pointer; font-family: inherit; transition: background 0.2s;
+  }
+  .btn-logout:hover { background: rgba(255,255,255,0.25); }
+  .tab-nav { background: var(--white); border-bottom: 1px solid var(--border); display: flex; padding: 0 24px; }
+  .tab-btn {
+    padding: 14px 20px; border: none; background: none; font-size: 14px; font-family: inherit;
+    color: var(--text-muted); cursor: pointer; border-bottom: 3px solid transparent;
+    transition: all 0.2s; font-weight: 500; display: flex; align-items: center; gap: 6px;
+  }
+  .tab-btn:hover { color: var(--navy); }
+  .tab-btn.active { color: var(--navy); border-bottom-color: var(--accent); font-weight: 700; }
+  .main { max-width: 860px; margin: 0 auto; padding: 28px 20px; }
+  .page { display: none; }
+  .page.active { display: block; }
+  .section-title { font-size: 18px; font-weight: 700; color: var(--navy); margin-bottom: 18px; display: flex; align-items: center; gap: 8px; }
+  .card { background: var(--white); border-radius: var(--radius); box-shadow: var(--shadow); padding: 24px; margin-bottom: 20px; }
+  .date-selector { display: flex; gap: 8px; margin-bottom: 24px; flex-wrap: wrap; }
+  .date-chip {
+    padding: 8px 16px; border: 1.5px solid var(--border); border-radius: 24px;
+    background: var(--white); font-size: 13px; cursor: pointer; transition: all 0.2s;
+    font-family: inherit; font-weight: 500; line-height: 1.3; text-align: center;
+  }
+  .date-chip:hover { border-color: var(--navy); color: var(--navy); }
+  .date-chip.active { background: var(--navy); border-color: var(--navy); color: white; }
+  .date-chip .weekday { display: block; font-size: 11px; opacity: 0.75; }
+  .deadline-badge {
+    display: inline-flex; align-items: center; gap: 5px; background: var(--accent-light);
+    color: #9A6A0A; border-radius: 6px; padding: 5px 12px; font-size: 13px; font-weight: 700; margin-bottom: 20px;
+  }
+  .menu-list { display: flex; flex-direction: column; gap: 12px; }
+  .menu-item {
+    border: 1.5px solid var(--border); border-radius: var(--radius); padding: 16px 18px;
+    display: flex; align-items: center; gap: 16px; transition: border-color 0.2s;
+  }
+  .menu-item:hover { border-color: var(--navy-light); }
+  .menu-item.selected { border-color: var(--navy); background: #F0F3FB; }
+  .menu-item.daily-special { border-left: 4px solid var(--accent); }
+  .menu-emoji { font-size: 28px; width: 44px; text-align: center; flex-shrink: 0; }
+  .menu-info { flex: 1; }
+  .menu-name { font-size: 15px; font-weight: 700; margin-bottom: 2px; }
+  .menu-tag { font-size: 10px; background: var(--accent); color: white; padding: 2px 7px; border-radius: 4px; font-weight: 700; margin-left: 6px; }
+  .qty-control { display: flex; align-items: center; gap: 8px; background: var(--bg); border-radius: 8px; padding: 4px; }
+  .qty-btn {
+    width: 30px; height: 30px; border: none; border-radius: 6px; background: var(--white);
+    font-size: 18px; cursor: pointer; display: flex; align-items: center; justify-content: center;
+    font-weight: 700; color: var(--navy); box-shadow: 0 1px 3px rgba(0,0,0,0.1); transition: background 0.15s;
+  }
+  .qty-btn:hover { background: var(--navy); color: white; }
+  .qty-num { font-size: 16px; font-weight: 700; min-width: 24px; text-align: center; }
+  .order-footer { display: flex; align-items: center; justify-content: space-between; margin-top: 24px; padding-top: 20px; border-top: 1px solid var(--border); }
+  .order-summary { font-size: 14px; color: var(--text-muted); }
+  .order-summary strong { color: var(--text); font-size: 16px; }
+  .btn-primary {
+    background: var(--navy); color: white; border: none; border-radius: 8px; padding: 12px 32px;
+    font-size: 15px; font-weight: 700; cursor: pointer; font-family: inherit; transition: background 0.2s;
+  }
+  .btn-primary:hover { background: var(--navy-light); }
+  .btn-primary:disabled { background: var(--border); color: var(--text-muted); cursor: not-allowed; }
+  .ordered-banner {
+    display: flex; align-items: center; justify-content: space-between;
+    background: #EAF7F0; border: 1.5px solid #2D9B6F; border-radius: 10px; padding: 12px 16px; margin-bottom: 16px;
+  }
+  .ordered-banner-text { font-size: 14px; font-weight: 700; color: #1B6B4A; display: flex; align-items: center; gap: 6px; }
+  .btn-cancel-order {
+    background: none; color: var(--danger); border: 1.5px solid var(--danger); border-radius: 8px;
+    padding: 8px 18px; font-size: 13px; font-weight: 700; cursor: pointer; font-family: inherit; transition: all 0.2s; white-space: nowrap;
+  }
+  .btn-cancel-order:hover { background: var(--danger); color: white; }
+  .summary-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; }
+  .summary-table { width: 100%; border-collapse: collapse; }
+  .summary-table th { background: var(--navy); color: white; padding: 10px 14px; text-align: left; font-size: 13px; font-weight: 500; }
+  .summary-table th:first-child { border-radius: 8px 0 0 0; }
+  .summary-table th:last-child { border-radius: 0 8px 0 0; }
+  .summary-table td { padding: 11px 14px; border-bottom: 1px solid var(--border); font-size: 14px; }
+  .summary-table tr:last-child td { border-bottom: none; }
+  .summary-table tr:hover td { background: var(--bg); }
+  .count-pill { background: var(--navy); color: white; border-radius: 12px; padding: 3px 12px; font-size: 13px; font-weight: 700; display: inline-block; }
+  .total-row td { font-weight: 700; color: var(--navy); background: var(--accent-light) !important; border-top: 2px solid var(--accent); }
+  .setting-group { margin-bottom: 28px; }
+  .setting-label { font-size: 13px; font-weight: 700; color: var(--text-muted); letter-spacing: 0.05em; text-transform: uppercase; margin-bottom: 10px; }
+  .input-row { display: flex; gap: 10px; align-items: center; }
+  input[type="text"], input[type="time"], input[type="date"], input[type="number"] {
+    border: 1.5px solid var(--border); border-radius: 8px; padding: 10px 14px;
+    font-size: 14px; font-family: inherit; outline: none; transition: border-color 0.2s; background: var(--white);
+  }
+  input:focus { border-color: var(--navy); }
+  .btn-secondary {
+    background: var(--white); color: var(--navy); border: 1.5px solid var(--navy); border-radius: 8px;
+    padding: 10px 20px; font-size: 14px; font-weight: 700; cursor: pointer; font-family: inherit; transition: all 0.2s;
+  }
+  .btn-secondary:hover { background: var(--navy); color: white; }
+  .btn-danger {
+    background: none; color: var(--danger); border: 1.5px solid var(--danger); border-radius: 6px;
+    padding: 6px 14px; font-size: 13px; cursor: pointer; font-family: inherit; transition: all 0.2s;
+  }
+  .btn-danger:hover { background: var(--danger); color: white; }
+  .menu-setting-item { display: flex; align-items: center; gap: 10px; padding: 12px 0; border-bottom: 1px solid var(--border); }
+  .menu-setting-item:last-child { border-bottom: none; }
+  .menu-setting-item input[type="text"] { flex: 1; }
+  .member-list-item { display: flex; align-items: center; gap: 10px; padding: 10px 0; border-bottom: 1px solid var(--border); }
+  .member-list-item:last-child { border-bottom: none; }
+  .member-name-display { flex: 1; font-size: 14px; font-weight: 500; }
+  .toast {
+    position: fixed; bottom: 28px; left: 50%; transform: translateX(-50%) translateY(80px);
+    background: var(--success); color: white; padding: 12px 24px; border-radius: 10px;
+    font-size: 14px; font-weight: 700; box-shadow: 0 4px 20px rgba(0,0,0,0.2);
+    transition: transform 0.3s cubic-bezier(0.34,1.56,0.64,1); z-index: 999; white-space: nowrap;
+  }
+  .toast.show { transform: translateX(-50%) translateY(0); }
+  .chip-daily { font-size: 11px; background: var(--accent); color: white; padding: 2px 8px; border-radius: 4px; font-weight: 700; vertical-align: middle; margin-left: 4px; }
+
+  /* スマホ対応 */
+  @media (max-width: 600px) {
+    .login-card { padding: 32px 20px 28px; }
+    .login-logo { font-size: 40px; }
+    .login-title { font-size: 18px; }
+    .member-grid { grid-template-columns: 1fr 1fr; gap: 8px; }
+    .member-btn { padding: 12px 8px; font-size: 12px; }
+    header { padding: 0 14px; height: 54px; }
+    header h1 { font-size: 14px; }
+    .user-badge { font-size: 11px; padding: 3px 8px; max-width: 110px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .btn-logout { font-size: 11px; padding: 4px 10px; }
+    .tab-nav { padding: 0 4px; }
+    .tab-btn { padding: 12px 8px; font-size: 11px; gap: 3px; }
+    .main { padding: 16px 12px; }
+    .card { padding: 16px; }
+    .section-title { font-size: 15px; }
+    .date-chip { padding: 6px 10px; font-size: 12px; }
+    .menu-item { padding: 12px; gap: 10px; }
+    .menu-emoji { font-size: 22px; width: 32px; }
+    .menu-name { font-size: 13px; }
+    .qty-btn { width: 32px; height: 32px; font-size: 18px; }
+    .order-footer { flex-direction: column; gap: 12px; align-items: stretch; }
+    .btn-primary { text-align: center; padding: 14px; }
+    .ordered-banner { flex-direction: column; gap: 10px; align-items: flex-start; }
+    .input-row { flex-wrap: wrap; }
+    .input-row input[type="text"] { width: 100%; }
+    .menu-setting-item { flex-wrap: wrap; gap: 8px; }
+    .menu-setting-item input[type="text"] { width: 100%; }
+    .member-list-item { flex-wrap: wrap; gap: 8px; }
+    .summary-header { flex-direction: column; align-items: flex-start; gap: 12px; }
+    .summary-table th, .summary-table td { padding: 8px 10px; font-size: 12px; }
+    .toast { font-size: 13px; padding: 10px 18px; white-space: normal; text-align: center; max-width: 80vw; }
+  }
+</style>
+</head>
+<body>
+
+<!-- ローディング -->
+<div id="loading-screen">
+  <div style="font-size:48px">🍱</div>
+  <div class="loading-spinner"></div>
+  <div class="loading-text">データを読み込み中...</div>
+</div>
+
+<!-- ログイン -->
+<div id="login-screen">
+  <div class="login-card">
+    <div class="login-logo">🍱</div>
+    <div class="login-title">お弁当注文システム</div>
+    <div class="login-sub">名前を選んでログインしてください</div>
+    <span class="login-label">メンバーを選択</span>
+    <div class="member-grid" id="member-grid"></div>
+    <button class="btn-login" id="login-btn" onclick="doLogin()" disabled>ログイン</button>
+  </div>
+</div>
+
+<!-- アプリ -->
+<div id="app-screen">
+  <header>
+    <h1><span>🍱</span> お弁当注文システム</h1>
+    <div class="header-right">
+      <span class="user-badge" id="header-username">👤 </span>
+      <button class="btn-logout" onclick="doLogout()">ログアウト</button>
+    </div>
+  </header>
+  <nav class="tab-nav">
+    <button class="tab-btn active" onclick="showPage('order')" id="tab-order">🛒 注文する</button>
+    <button class="tab-btn" onclick="showPage('summary')" id="tab-summary">📊 集計を見る</button>
+    <button class="tab-btn" onclick="showPage('settings')" id="tab-settings">⚙️ メニュー・設定</button>
+  </nav>
+  <div id="leader-banner" style="display:none;background:var(--accent-light);border-bottom:1px solid #F0D080;padding:8px 24px;font-size:13px;font-weight:700;color:#9A6A0A;text-align:center;">
+    📋 注文担当者：<span id="leader-name"></span>
+  </div>
+
+  <div class="main">
+    <!-- 注文 -->
+    <div class="page active" id="page-order">
+      <p class="section-title">📅 日付を選んでください</p>
+      <div class="date-selector" id="date-selector"></div>
+      <div class="card">
+        <div class="deadline-badge" id="deadline-display">⏰ 締切：09:00</div>
+        <div id="ordered-banner" style="display:none" class="ordered-banner">
+          <span class="ordered-banner-text">✅ 注文済み</span>
+          <button class="btn-cancel-order" onclick="cancelOrder()">注文をキャンセルする</button>
+        </div>
+        <div class="menu-list" id="menu-list"></div>
+        <div class="order-footer">
+          <div class="order-summary">選択中：<strong id="selected-count">0</strong> 個</div>
+          <button class="btn-primary" id="order-btn" onclick="placeOrder()" disabled>注文を確定する</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- 集計 -->
+    <div class="page" id="page-summary">
+      <div class="summary-header">
+        <p class="section-title">📊 注文集計</p>
+        <div class="date-selector" id="summary-date-selector" style="margin-bottom:0"></div>
+      </div>
+      <div class="card">
+        <table class="summary-table">
+          <thead><tr><th>メニュー</th><th>注文数</th><th>注文者</th></tr></thead>
+          <tbody id="summary-body"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- 設定 -->
+    <div class="page" id="page-settings">
+      <div class="card">
+        <p class="section-title">⏰ 締切時間の設定</p>
+        <div class="setting-group">
+          <div class="setting-label">デフォルト締切時間（全日共通）</div>
+          <div class="input-row">
+            <input type="time" id="default-deadline-input" value="09:00">
+            <button class="btn-secondary" onclick="saveDefaultDeadline()">保存する</button>
+          </div>
+        </div>
+        <div class="setting-group" style="margin-bottom:0">
+          <div class="setting-label">日付ごとに個別設定（デフォルトを上書き）</div>
+          <div class="input-row">
+            <input type="date" id="deadline-date-input">
+            <input type="time" id="deadline-time-input" value="09:00">
+            <button class="btn-secondary" onclick="saveDeadline()">保存する</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <p class="section-title">🍱 メニュー管理</p>
+        <div class="setting-group">
+          <div class="setting-label">日替わりメニュー（今日）</div>
+          <div class="input-row">
+            <input type="text" id="daily-menu-input" placeholder="例：鶏の唐揚げ弁当" style="flex:1">
+            <input type="number" id="daily-price-input" placeholder="金額" min="0" style="width:90px" value="0">
+            <span style="font-size:14px;color:var(--text-muted);">円</span>
+          </div>
+        </div>
+        <div class="setting-group" style="margin-bottom:0">
+          <div class="setting-label">固定メニュー</div>
+          <div id="fixed-menu-list"></div>
+          <div class="input-row" style="margin-top:12px">
+            <input type="text" id="new-menu-input" placeholder="新しいメニュー名を入力" style="flex:1">
+            <input type="number" id="new-menu-price" placeholder="金額" min="0" style="width:90px" value="0">
+            <span style="font-size:14px;color:var(--text-muted);">円</span>
+            <button class="btn-secondary" onclick="addFixedMenu()">＋ 追加</button>
+          </div>
+        </div>
+        <div style="margin-top:20px;padding-top:16px;border-top:1px solid var(--border);display:flex;justify-content:flex-end;">
+          <button class="btn-primary" onclick="saveAllMenus()">✅ メニューを一括更新する</button>
+        </div>
+      </div>
+
+      <div class="card">
+        <p class="section-title">👥 メンバー管理</p>
+        <div class="setting-group">
+          <div id="member-setting-list"></div>
+          <div class="input-row" style="margin-top:12px">
+            <input type="text" id="new-member-input" placeholder="新しいメンバー名を入力">
+            <button class="btn-secondary" onclick="addMember()">＋ 追加</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<!-- Firebase SDK -->
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+import { getDatabase, ref, set, get, onValue, update, remove } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
+
+const firebaseConfig = {
+  apiKey: "AIzaSyBv2srutUh9dRVxv1Kxi3vLlk45e_ag1UA",
+  authDomain: "bento-order-f1f7d.firebaseapp.com",
+  databaseURL: "https://bento-order-f1f7d-default-rtdb.firebaseio.com",
+  projectId: "bento-order-f1f7d",
+  storageBucket: "bento-order-f1f7d.firebasestorage.app",
+  messagingSenderId: "233712405757",
+  appId: "1:233712405757:web:6605fae16da2123c188294"
+};
+
+const app = initializeApp(firebaseConfig);
+const db = getDatabase(app);
+
+// ===== 状態 =====
+const state = {
+  currentUser: null,
+  selectedDate: null,
+  quantities: {},
+  // Firebaseから読み込むデータ（ローカルキャッシュ）
+  members: [],
+  menus: { daily: { name: '日替わり弁当（本日未定）', price: 0 }, fixed: [] },
+  defaultDeadline: '09:00',
+  deadlines: {},
+  orders: {},
+};
+
+// ===== 日付 =====
+function getWeekDates() {
+  const dates = []; const today = new Date();
+  const days = ['日','月','火','水','木','金','土'];
+  for (let i = 0; i < 7; i++) {
+    const d = new Date(today); d.setDate(today.getDate() + i);
+    dates.push({
+      label: i===0?'今日':i===1?'明日':`${d.getMonth()+1}/${d.getDate()}`,
+      weekday: days[d.getDay()],
+      key: d.toISOString().slice(0,10),
+    });
+  }
+  return dates;
+}
+const DATES = getWeekDates();
+state.selectedDate = DATES[0].key;
+
+// ===== Firebase 初期データ投入（初回のみ） =====
+async function initFirebaseDefaults() {
+  const snap = await get(ref(db, 'settings'));
+  if (!snap.exists()) {
+    await set(ref(db, 'settings'), {
+      defaultDeadline: '09:00',
+      menus: {
+        daily: { name: '日替わり弁当（本日未定）', price: 0 },
+        fixed: {
+          0: { name: '幕の内弁当', price: 550 },
+          1: { name: '焼き魚弁当', price: 600 },
+          2: { name: '唐揚げ弁当', price: 500 },
+          3: { name: 'ヘルシー弁当', price: 480 },
+        }
+      }
+    });
+  }
+  const mSnap = await get(ref(db, 'members'));
+  if (!mSnap.exists()) {
+    await set(ref(db, 'members'), {
+      0: { name: '山田 花子', role: 'member' },
+      1: { name: '田中 一郎', role: 'member' },
+      2: { name: '鈴木 二郎', role: 'member' },
+      3: { name: '佐藤 三郎', role: 'member' },
+      4: { name: '高橋 四子', role: 'member' },
+    });
+  }
+}
+
+// ===== Firebase リアルタイム監視 =====
+function startListeners() {
+  // メンバー
+  onValue(ref(db, 'members'), snap => {
+    state.members = snap.exists() ? Object.values(snap.val()) : [];
+    renderMemberGrid();
+    if (state.currentUser) renderMemberSettings();
+    updateLeaderBanner();
+  });
+  // 設定
+  onValue(ref(db, 'settings'), snap => {
+    if (!snap.exists()) return;
+    const s = snap.val();
+    state.defaultDeadline = s.defaultDeadline || '09:00';
+    state.deadlines = s.deadlines || {};
+    if (s.menus) {
+      state.menus.daily = s.menus.daily || state.menus.daily;
+      state.menus.fixed = s.menus.fixed ? Object.values(s.menus.fixed) : [];
+    }
+    if (state.currentUser) {
+      renderMenu(); renderDeadline(); renderFixedMenuSettings();
+      document.getElementById('default-deadline-input').value = state.defaultDeadline;
+    }
+  });
+  // 注文
+  onValue(ref(db, 'orders'), snap => {
+    state.orders = snap.exists() ? snap.val() : {};
+    if (state.currentUser) { renderMenu(); renderSummary(); }
+  });
+}
+
+// ===== ログイン =====
+let selectedLoginMember = null;
+
+function renderMemberGrid() {
+  const el = document.getElementById('member-grid');
+  if (!el) return;
+  el.innerHTML = state.members.map(m => `
+    <button class="member-btn ${selectedLoginMember===m.name?'selected':''}" onclick="selectMember('${m.name}')">
+      <span style="font-size:20px">${m.role==='leader'?'📋':'👤'}</span>
+      <span>${m.name}</span>
+      ${m.role==='leader'?'<span style="font-size:10px;opacity:0.8;">注文担当</span>':''}
+    </button>
+  `).join('');
+}
+window.selectMember = function(name) {
+  selectedLoginMember = name;
+  renderMemberGrid();
+  document.getElementById('login-btn').disabled = false;
+};
+window.doLogin = function() {
+  if (!selectedLoginMember) return;
+  state.currentUser = selectedLoginMember;
+  document.getElementById('header-username').textContent = '👤 ' + state.currentUser;
+  document.getElementById('login-screen').style.display = 'none';
+  document.getElementById('app-screen').style.display = 'block';
+  renderDateSelector(); renderMenu(); renderDeadline();
+  renderFixedMenuSettings(); renderMemberSettings();
+  updateLeaderBanner();
+  document.getElementById('deadline-date-input').value = DATES[0].key;
+  document.getElementById('default-deadline-input').value = state.defaultDeadline;
+};
+window.doLogout = function() {
+  state.currentUser = null; state.quantities = {}; selectedLoginMember = null;
+  document.getElementById('app-screen').style.display = 'none';
+  document.getElementById('login-screen').style.display = 'flex';
+  document.getElementById('login-btn').disabled = true;
+  renderMemberGrid(); showPage('order');
+};
+
+// ===== タブ =====
+window.showPage = function(name) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('page-'+name).classList.add('active');
+  document.getElementById('tab-'+name).classList.add('active');
+  if (name==='summary') renderSummary();
+};
+
+// ===== 注文ページ =====
+function renderDateSelector() {
+  document.getElementById('date-selector').innerHTML = DATES.map(d => `
+    <button class="date-chip ${d.key===state.selectedDate?'active':''}" onclick="selectDate('${d.key}')">
+      ${d.label}<span class="weekday">${d.weekday}</span>
+    </button>
+  `).join('');
+}
+window.selectDate = function(key) {
+  state.selectedDate = key; state.quantities = {};
+  renderDateSelector(); renderMenu(); renderDeadline();
+};
+
+function getDeadline(dateKey) { return state.deadlines[dateKey] || state.defaultDeadline; }
+function isPastDeadline(dateKey) {
+  const dl = getDeadline(dateKey);
+  const [h,m] = dl.split(':').map(Number);
+  const parts = dateKey.split('-').map(Number);
+  return new Date() >= new Date(parts[0], parts[1]-1, parts[2], h, m, 0, 0);
+}
+function renderDeadline() {
+  const dl = getDeadline(state.selectedDate);
+  const past = isPastDeadline(state.selectedDate);
+  document.getElementById('deadline-display').innerHTML =
+    `⏰ 締切：${dl}` + (past ? `　<span style="color:var(--danger);font-weight:700;">（締切済み）</span>` : '');
+}
+function getAllMenus() {
+  return [
+    { id: 'daily', name: state.menus.daily.name, price: state.menus.daily.price, isDaily: true },
+    ...state.menus.fixed.map((m,i) => ({ id:`fixed_${i}`, name:m.name, price:m.price, isDaily:false }))
+  ];
+}
+function renderMenu() {
+  const menus = getAllMenus();
+  const ordersForDate = state.orders[state.selectedDate] || {};
+  const existingOrder = ordersForDate[state.currentUser];
+  const past = isPastDeadline(state.selectedDate);
+  document.getElementById('ordered-banner').style.display = existingOrder ? 'flex' : 'none';
+  const cancelBtn = document.querySelector('.btn-cancel-order');
+  if (cancelBtn) cancelBtn.style.display = past ? 'none' : '';
+  if (existingOrder && Object.keys(state.quantities).length === 0) {
+    existingOrder.items && existingOrder.items.forEach(item => { state.quantities[item.id] = item.qty; });
+  }
+  document.getElementById('menu-list').innerHTML = menus.map(m => {
+    const qty = state.quantities[m.id] || 0;
+    const priceStr = m.price > 0 ? `<span style="font-size:12px;color:var(--text-muted);margin-left:6px;">¥${m.price.toLocaleString()}</span>` : '';
+    const dis = past ? 'disabled style="opacity:0.4;cursor:not-allowed"' : '';
+    return `
+      <div class="menu-item ${m.isDaily?'daily-special':''} ${qty>0?'selected':''}">
+        <div class="menu-emoji">${m.isDaily?'🌟':'🍱'}</div>
+        <div class="menu-info"><div class="menu-name">${m.name}${m.isDaily?'<span class="menu-tag">日替わり</span>':''}${priceStr}</div></div>
+        <div class="qty-control">
+          <button class="qty-btn" onclick="changeQty('${m.id}',-1)" ${dis}>−</button>
+          <span class="qty-num" id="qty-${m.id}">${qty}</span>
+          <button class="qty-btn" onclick="changeQty('${m.id}',1)" ${dis}>＋</button>
+        </div>
+      </div>`;
+  }).join('');
+  updateSelectedCount(past);
+}
+window.changeQty = function(id, delta) {
+  if (isPastDeadline(state.selectedDate)) return;
+  state.quantities[id] = Math.max(0, (state.quantities[id]||0) + delta);
+  document.getElementById('qty-'+id).textContent = state.quantities[id];
+  const menus = getAllMenus();
+  document.querySelectorAll('.menu-item').forEach((el,i) => {
+    if (menus[i].id === id) el.classList.toggle('selected', state.quantities[id]>0);
+  });
+  updateSelectedCount(isPastDeadline(state.selectedDate));
+};
+function updateSelectedCount(past) {
+  const total = Object.values(state.quantities).reduce((a,b)=>a+b,0);
+  document.getElementById('selected-count').textContent = total;
+  document.getElementById('order-btn').disabled = total===0 || past;
+}
+window.placeOrder = async function() {
+  const menus = getAllMenus();
+  const items = menus.filter(m=>(state.quantities[m.id]||0)>0)
+    .map(m=>({ id:m.id, name:m.name, qty:state.quantities[m.id] }));
+  await set(ref(db, `orders/${state.selectedDate}/${state.currentUser}`), { user: state.currentUser, items });
+  document.getElementById('ordered-banner').style.display = 'flex';
+  showToast('✅ 注文を確定しました！');
+};
+window.cancelOrder = async function() {
+  if (isPastDeadline(state.selectedDate)) { showToast('⚠️ 締切を過ぎているためキャンセルできません', true); return; }
+  if (!confirm('注文をキャンセルしますか？')) return;
+  await remove(ref(db, `orders/${state.selectedDate}/${state.currentUser}`));
+  state.quantities = {};
+  showToast('🗑️ 注文をキャンセルしました', true);
+};
+
+// ===== 集計 =====
+let summaryDate = DATES[0].key;
+function renderSummary() {
+  document.getElementById('summary-date-selector').innerHTML = DATES.slice(0,4).map(d => `
+    <button class="date-chip ${d.key===summaryDate?'active':''}" onclick="selectSummaryDate('${d.key}')">
+      ${d.label}<span class="weekday">${d.weekday}</span>
+    </button>
+  `).join('');
+  const ordersForDate = state.orders[summaryDate] || {};
+  const orderList = Object.values(ordersForDate);
+  const menus = getAllMenus();
+  const tbody = document.getElementById('summary-body');
+  if (orderList.length===0) {
+    tbody.innerHTML = `<tr><td colspan="3" style="text-align:center;color:var(--text-muted);padding:32px">まだ注文がありません</td></tr>`;
+    return;
+  }
+  const counts = {}; const users = {};
+  menus.forEach(m => { counts[m.id]=0; users[m.id]=[]; });
+  orderList.forEach(o => {
+    (o.items||[]).forEach(item => {
+      counts[item.id]=(counts[item.id]||0)+item.qty;
+      if (item.qty>0) users[item.id].push(`${o.user}×${item.qty}`);
+    });
+  });
+  let total=0;
+  const rows = menus.map(m => {
+    if (!counts[m.id]) return '';
+    total += counts[m.id];
+    return `<tr>
+      <td>${m.isDaily?'<span class="chip-daily">日替わり</span> ':''}${m.name}</td>
+      <td><span class="count-pill">${counts[m.id]}個</span></td>
+      <td style="color:var(--text-muted);font-size:13px">${(users[m.id]||[]).join('、')}</td>
+    </tr>`;
+  }).join('');
+  tbody.innerHTML = rows + `<tr class="total-row"><td>合計</td><td><span class="count-pill">${total}個</span></td><td></td></tr>`;
+}
+window.selectSummaryDate = function(key) { summaryDate=key; renderSummary(); };
+
+// ===== 設定 =====
+window.saveDefaultDeadline = async function() {
+  const time = document.getElementById('default-deadline-input').value;
+  if (!time) return;
+  await update(ref(db,'settings'), { defaultDeadline: time });
+  showToast('✅ デフォルト締切時間を保存しました');
+};
+window.saveDeadline = async function() {
+  const date = document.getElementById('deadline-date-input').value;
+  const time = document.getElementById('deadline-time-input').value;
+  if (!date||!time) { showToast('⚠️ 日付と時間を入力してください', true); return; }
+  await update(ref(db,`settings/deadlines`), { [date]: time });
+  showToast('✅ 締切時間を保存しました');
+};
+window.saveAllMenus = async function() {
+  const name = document.getElementById('daily-menu-input').value.trim();
+  const price = parseInt(document.getElementById('daily-price-input').value)||0;
+  const fixedObj = {};
+  state.menus.fixed.forEach((m,i) => {
+    const n = document.getElementById(`fixed-name-${i}`);
+    const p = document.getElementById(`fixed-price-${i}`);
+    fixedObj[i] = { name: n?n.value.trim()||m.name:m.name, price: p?parseInt(p.value)||0:m.price };
+  });
+  const update_ = {};
+  if (name) update_['settings/menus/daily'] = { name, price };
+  update_['settings/menus/fixed'] = fixedObj;
+  await update(ref(db), update_);
+  showToast('✅ メニューを更新しました');
+};
+window.addFixedMenu = async function() {
+  const name = document.getElementById('new-menu-input').value.trim();
+  const price = parseInt(document.getElementById('new-menu-price').value)||0;
+  if (!name) return;
+  const newFixed = [...state.menus.fixed, { name, price }];
+  const fixedObj = {};
+  newFixed.forEach((m,i) => { fixedObj[i]=m; });
+  await set(ref(db,'settings/menus/fixed'), fixedObj);
+  document.getElementById('new-menu-input').value='';
+  document.getElementById('new-menu-price').value='0';
+  showToast('✅ メニューを追加しました');
+};
+window.removeFixedMenu = async function(i) {
+  const newFixed = state.menus.fixed.filter((_,idx)=>idx!==i);
+  const fixedObj = {};
+  newFixed.forEach((m,idx) => { fixedObj[idx]=m; });
+  await set(ref(db,'settings/menus/fixed'), fixedObj);
+  showToast('🗑️ メニューを削除しました');
+};
+function renderFixedMenuSettings() {
+  document.getElementById('daily-menu-input').value = state.menus.daily.name;
+  document.getElementById('daily-price-input').value = state.menus.daily.price;
+  document.getElementById('fixed-menu-list').innerHTML = state.menus.fixed.map((m,i) => `
+    <div class="menu-setting-item">
+      <span style="font-size:18px">🍱</span>
+      <input type="text" id="fixed-name-${i}" value="${m.name}" style="flex:1">
+      <input type="number" id="fixed-price-${i}" value="${m.price}" min="0" style="width:80px">
+      <span style="font-size:13px;color:var(--text-muted);">円</span>
+      <button class="btn-danger" onclick="removeFixedMenu(${i})">削除</button>
+    </div>`).join('');
+}
+
+// ===== メンバー管理 =====
+window.addMember = async function() {
+  const val = document.getElementById('new-member-input').value.trim();
+  if (!val) return;
+  const newMembers = [...state.members, { name:val, role:'member' }];
+  const obj = {}; newMembers.forEach((m,i)=>{ obj[i]=m; });
+  await set(ref(db,'members'), obj);
+  document.getElementById('new-member-input').value='';
+  showToast('✅ メンバーを追加しました');
+};
+window.removeMember = async function(i) {
+  if (state.members[i].name===state.currentUser) { showToast('⚠️ 自分自身は削除できません',true); return; }
+  const newMembers = state.members.filter((_,idx)=>idx!==i);
+  const obj={}; newMembers.forEach((m,idx)=>{ obj[idx]=m; });
+  await set(ref(db,'members'), obj);
+  showToast('🗑️ メンバーを削除しました');
+};
+window.toggleRole = async function(i) {
+  const newRole = state.members[i].role==='leader'?'member':'leader';
+  await update(ref(db,`members/${i}`), { role: newRole });
+};
+function updateLeaderBanner() {
+  const leaders = state.members.filter(m=>m.role==='leader').map(m=>m.name);
+  const banner = document.getElementById('leader-banner');
+  const nameEl = document.getElementById('leader-name');
+  if (!banner||!nameEl) return;
+  if (leaders.length>0) { nameEl.textContent=leaders.join('、')+' さん'; banner.style.display='block'; }
+  else banner.style.display='none';
+}
+function renderMemberSettings() {
+  document.getElementById('member-setting-list').innerHTML = state.members.map((m,i) => {
+    const isLeader = m.role==='leader';
+    const isSelf = m.name===state.currentUser;
+    return `<div class="member-list-item">
+      <span style="font-size:18px">${isLeader?'📋':'👤'}</span>
+      <span class="member-name-display">${m.name}${isSelf?'<span style="font-size:11px;background:var(--navy);color:white;padding:2px 8px;border-radius:4px;margin-left:4px;">ログイン中</span>':''}</span>
+      <button onclick="toggleRole(${i})" style="border:1.5px solid ${isLeader?'var(--accent)':'var(--border)'};background:${isLeader?'var(--accent-light)':'var(--white)'};color:${isLeader?'#9A6A0A':'var(--text-muted)'};border-radius:6px;padding:5px 12px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;white-space:nowrap;">${isLeader?'📋 注文担当中':'注文担当に設定'}</button>
+      <button class="btn-danger" onclick="removeMember(${i})">削除</button>
+    </div>`;
+  }).join('');
+}
+
+// ===== トースト =====
+function showToast(msg, isWarn=false) {
+  const t = document.getElementById('toast');
+  t.textContent=msg; t.style.background=isWarn?'#D94F3D':'#2D9B6F';
+  t.classList.add('show'); setTimeout(()=>t.classList.remove('show'),2500);
+}
+
+// ===== 起動 =====
+async function boot() {
+  await initFirebaseDefaults();
+  startListeners();
+  // ローディング終了
+  document.getElementById('loading-screen').style.display='none';
+  document.getElementById('login-screen').style.display='flex';
+}
+boot();
+</script>
+</body>
+</html>
